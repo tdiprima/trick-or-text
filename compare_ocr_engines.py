@@ -99,8 +99,8 @@ def score_text(reference_text: str, recognized_text: str) -> dict[str, object]:
         "substitutions": word_stats["substitutions"],
         "char_distance": char_stats["distance"],
         "word_distance": word_stats["distance"],
-        "insertions": word_stats["insertions"],
-        "deletions": word_stats["deletions"],
+        "word_insertions": word_stats["insertions"],
+        "word_deletions": word_stats["deletions"],
         "reference_text": normalized_reference,
         "recognized_text": normalized_recognized,
     }

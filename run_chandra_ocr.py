@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -46,6 +47,28 @@ def dicom_to_png(dicom_path: Path, output_dir: Path) -> Path:
     return png_path
 
 
+def markdown_to_plain_text(markdown_text: str) -> str:
+    lines: list[str] = []
+    in_code_block = False
+
+    for raw_line in markdown_text.splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+
+        line = raw_line
+        if not in_code_block:
+            line = re.sub(r"^\s{0,3}#{1,6}\s*", "", line)
+            line = re.sub(r"^\s{0,3}>\s?", "", line)
+            line = re.sub(r"^\s{0,3}[-*+]\s+", "", line)
+            line = re.sub(r"^\s{0,3}\d+\.\s+", "", line)
+
+        lines.append(line.rstrip())
+
+    return "\n".join(lines).strip() + "\n"
+
+
 def run_chandra(chandra_bin: str, source_path: Path, output_root: Path) -> str:
     target_dir = output_root / source_path.stem
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -63,7 +86,9 @@ def run_chandra(chandra_bin: str, source_path: Path, output_root: Path) -> str:
     if not markdown_path.exists():
         raise FileNotFoundError(f"Expected Chandra output at {markdown_path}")
 
-    recognized_text = markdown_path.read_text(encoding="utf-8")
+    recognized_markdown = markdown_path.read_text(encoding="utf-8")
+    recognized_text = markdown_to_plain_text(recognized_markdown)
+    (target_dir / "recognized.md").write_text(recognized_markdown, encoding="utf-8")
     (target_dir / "recognized.txt").write_text(recognized_text, encoding="utf-8")
     return recognized_text
 
