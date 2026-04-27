@@ -1,4 +1,4 @@
-# Trick or Text
+# Trick or Text 🎃 🦇 
 
 OCR stress demo for Chandra OCR 2, pytesseract, and optional model adapters.
 
