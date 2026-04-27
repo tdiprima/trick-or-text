@@ -19,7 +19,11 @@ source "${VENV_DIR}/bin/activate"
 python -m pip install --upgrade pip
 python -m pip install "chandra-ocr[hf]" pillow numpy pydicom pytesseract
 
+if [[ "${INSTALL_LIGHTONOCR:-0}" == "1" ]]; then
+    python -m pip install torch transformers
+fi
+
 python "${ROOT_DIR}/generate_fake_images.py"
-python "${ROOT_DIR}/compare_ocr_engines.py"
+python "${ROOT_DIR}/compare_ocr_engines.py" --engines "${OCR_ENGINES:-pytesseract,chandra}"
 
 printf '\nPipeline finished. Outputs are in %s\n' "${ROOT_DIR}/artifacts"
