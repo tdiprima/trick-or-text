@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# INSTALL_LIGHTONOCR=1 OCR_ENGINES=pytesseract,chandra,lightonocr ./install_and_run.sh
 
 set -euo pipefail
 

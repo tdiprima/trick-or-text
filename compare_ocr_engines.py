@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Run registered OCR engines against generated fixtures and compare results."""
+"""
+Run registered OCR engines against generated fixtures and compare results.
+python compare_ocr_engines.py --engines pytesseract,chandra,lightonocr
+"""
 
 from __future__ import annotations
 
