@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
 Run registered OCR engines against generated fixtures and compare results.
-python compare_ocr_engines.py --engines pytesseract,chandra,lightonocr
+python compare_ocr_engines.py --engines pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import shutil
 import sys
@@ -15,6 +16,7 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
+from urllib import error, request
 
 import pytesseract
 
@@ -33,7 +35,17 @@ GROUND_TRUTH_FILENAMES = {
     "png": "fake_ocr_hostile_png_ground_truth.txt",
     "dicom": "fake_ocr_hostile_dicom_ground_truth.txt",
 }
-AVAILABLE_ENGINE_KEYS = ("pytesseract", "chandra", "lightonocr")
+DEFAULT_ENGINE_KEYS = (
+    "pytesseract",
+    "chandra",
+    "ollama-gemma4-latest",
+    "ollama-gemma4-26b",
+)
+AVAILABLE_ENGINE_KEYS = (*DEFAULT_ENGINE_KEYS, "lightonocr")
+OLLAMA_OCR_PROMPT = """Read and decipher all visible text in this image.
+
+Return only the transcribed text. Preserve line breaks when they help, and do not describe
+the image, explain uncertainty, add markdown fences, or invent text that is not visible."""
 
 
 @dataclass(frozen=True)
@@ -306,10 +318,113 @@ class LightOnOcrEngine:
         )
 
 
+class OllamaVisionEngine:
+    def __init__(
+        self,
+        key: str,
+        model_id: str,
+        base_url: str,
+        timeout_seconds: float,
+    ) -> None:
+        self.key = key
+        self.display_name = f"Ollama {model_id}"
+        self.model_id = model_id
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+
+    def prepare(self) -> None:
+        # No client setup is needed; per-sample failures are captured in the comparison report.
+        pass
+
+    def recognize(self, sample: OcrSample, output_dir: Path) -> OcrOutput:
+        target_dir = output_dir / "comparison" / sample.label / self.key
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        payload = {
+            "model": self.model_id,
+            "prompt": OLLAMA_OCR_PROMPT,
+            "images": [base64.b64encode(sample.source.read_bytes()).decode("ascii")],
+            "stream": False,
+            "options": {
+                "temperature": 0,
+            },
+        }
+        response_data = self._post_json("/api/generate", payload)
+        response_text = response_data.get("response")
+        if not isinstance(response_text, str):
+            raise RuntimeError(f"Ollama response for {self.model_id} did not include text")
+        recognized_text = markdown_to_plain_text(response_text).strip()
+
+        raw_response_path = target_dir / "raw_response.json"
+        recognized_path = target_dir / "recognized.txt"
+        raw_response_path.write_text(
+            json.dumps(response_data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        recognized_path.write_text(recognized_text + "\n", encoding="utf-8")
+        return OcrOutput(
+            recognized_text=recognized_text,
+            recognized_text_path=recognized_path,
+            artifacts={
+                "raw_response_path": display_path(raw_response_path),
+                "model_id": self.model_id,
+                "ollama_base_url": self.base_url,
+                "timeout_seconds": str(self.timeout_seconds),
+            },
+        )
+
+    def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, object]:
+        body = json.dumps(payload).encode("utf-8")
+        http_request = request.Request(
+            f"{self.base_url}{path}",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with request.urlopen(http_request, timeout=self.timeout_seconds) as response:
+                response_body = response.read().decode("utf-8")
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"Ollama returned HTTP {exc.code} for {self.model_id}: {detail}"
+            ) from exc
+        except error.URLError as exc:
+            raise RuntimeError(
+                f"Could not reach Ollama at {self.base_url} for {self.model_id}: {exc.reason}"
+            ) from exc
+        except TimeoutError as exc:
+            raise RuntimeError(
+                f"Ollama request timed out after {self.timeout_seconds}s for {self.model_id}"
+            ) from exc
+
+        try:
+            decoded = json.loads(response_body)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Ollama returned invalid JSON for {self.model_id}") from exc
+        if not isinstance(decoded, dict):
+            raise RuntimeError(f"Ollama returned an unexpected response for {self.model_id}")
+        if "error" in decoded:
+            raise RuntimeError(f"Ollama error for {self.model_id}: {decoded['error']}")
+        return decoded
+
+
 def build_engine_registry(args: argparse.Namespace) -> dict[str, OcrEngine]:
     return {
         "pytesseract": PyTesseractEngine(),
         "chandra": ChandraEngine(),
+        "ollama-gemma4-latest": OllamaVisionEngine(
+            "ollama-gemma4-latest",
+            "gemma4:latest",
+            args.ollama_base_url,
+            args.ollama_timeout_seconds,
+        ),
+        "ollama-gemma4-26b": OllamaVisionEngine(
+            "ollama-gemma4-26b",
+            "gemma4:26b",
+            args.ollama_base_url,
+            args.ollama_timeout_seconds,
+        ),
         "lightonocr": LightOnOcrEngine(args.lighton_model_id, args.lighton_max_new_tokens),
     }
 
@@ -565,7 +680,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--engines",
-        default="pytesseract,chandra",
+        default=",".join(DEFAULT_ENGINE_KEYS),
         help=(
             "Comma-separated OCR engine keys to run, or `all`. "
             f"Available: {', '.join(AVAILABLE_ENGINE_KEYS)}."
@@ -586,6 +701,17 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1024,
         help="Maximum generated tokens for each LightOnOCR sample.",
+    )
+    parser.add_argument(
+        "--ollama-base-url",
+        default="http://localhost:11434",
+        help="Base URL for the local Ollama API used by Ollama-backed OCR engines.",
+    )
+    parser.add_argument(
+        "--ollama-timeout-seconds",
+        type=float,
+        default=300.0,
+        help="HTTP timeout in seconds for each Ollama image transcription request.",
     )
     return parser.parse_args()
 

@@ -1,6 +1,6 @@
 # Trick or Text 🎃 🦇 
 
-OCR stress demo for Chandra OCR 2, pytesseract, and optional model adapters.
+OCR stress demo for Chandra OCR 2, pytesseract, local Ollama vision models, and optional model adapters.
 
 This repo creates two synthetic OCR-hostile images on Linux:
 
@@ -28,6 +28,19 @@ Run a specific engine set:
 
 ```bash
 OCR_ENGINES=pytesseract,chandra ./install_and_run.sh
+```
+
+By default the comparison also asks a local Ollama server on `http://localhost:11434`
+to run `gemma4:latest` and `gemma4:26b` as image-to-text decoders:
+
+```bash
+OCR_ENGINES=pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b ./install_and_run.sh
+```
+
+Use a different Ollama endpoint if needed:
+
+```bash
+OLLAMA_BASE_URL=http://127.0.0.1:11434 ./install_and_run.sh
 ```
 
 List available engine keys:
@@ -65,6 +78,7 @@ After the run, check:
 - `artifacts/inputs/` for the generated `fake_ocr_hostile.png` and `fake_ocr_hostile.dcm`
 - `artifacts/ocr/chandra/*/recognized.txt` for the OCR text Chandra produced
 - `artifacts/ocr/comparison/<sample>/<engine>/recognized.txt` for comparison outputs written by engine adapters
+- `artifacts/ocr/comparison/<sample>/<ollama-engine>/raw_response.json` for raw Ollama API responses
 - `artifacts/ocr/comparison_summary.json` for machine-readable per-engine timing, text metrics, summaries, failures, and rankings
 - `artifacts/ocr/comparison_report.txt` for the human-readable comparison and judgment
 
@@ -72,5 +86,6 @@ After the run, check:
 
 - The DICOM file is synthetic and only meant to carry image pixels for this demo.
 - The OCR step uses `chandra --method hf`, so the first run may download model weights and can take a while.
+- The Ollama adapters require a running local Ollama server and locally available `gemma4:latest` and `gemma4:26b` models.
 - The LightOnOCR adapter uses the Hugging Face `lightonai/LightOnOCR-1B-1025` model by default and may download large model weights on first use.
 - The scripts assume `python3`, `venv`, a working `pip`, and the `tesseract` system binary are available on the Linux host.

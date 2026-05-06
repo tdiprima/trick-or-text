@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # INSTALL_LIGHTONOCR=1 OCR_ENGINES=pytesseract,chandra,lightonocr ./install_and_run.sh
+# OLLAMA_BASE_URL=http://localhost:11434 OCR_ENGINES=pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b ./install_and_run.sh
 
 set -euo pipefail
 
@@ -25,6 +26,8 @@ if [[ "${INSTALL_LIGHTONOCR:-0}" == "1" ]]; then
 fi
 
 python "${ROOT_DIR}/generate_fake_images.py"
-python "${ROOT_DIR}/compare_ocr_engines.py" --engines "${OCR_ENGINES:-pytesseract,chandra}"
+python "${ROOT_DIR}/compare_ocr_engines.py" \
+    --engines "${OCR_ENGINES:-pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b}" \
+    --ollama-base-url "${OLLAMA_BASE_URL:-http://localhost:11434}"
 
 printf '\nPipeline finished. Outputs are in %s\n' "${ROOT_DIR}/artifacts"
