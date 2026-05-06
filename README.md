@@ -15,6 +15,7 @@ The text is intentionally packed with ambiguous glyphs such as `I`, `l`, `1`, `O
 - `run_chandra_ocr.py`: converts the DICOM into a PNG for OCR, runs Chandra OCR 2 with the HuggingFace backend, and writes what Chandra recognized
 - `compare_ocr_engines.py`: runs selected OCR engines, scores each against ground truth, records OCR timing, and writes machine-readable plus human-readable comparisons
 - `install_and_run.sh`: creates `.venv`, installs dependencies, generates the files, and runs the comparison pipeline
+- `run_processing_and_comparison.sh`: skips installation, regenerates the fixtures, and runs the comparison pipeline with already-installed dependencies
 
 ## Usage
 
@@ -22,6 +23,12 @@ Run the whole pipeline on Rocky Linux, RHEL, or Ubuntu:
 
 ```bash
 ./install_and_run.sh
+```
+
+After dependencies are installed, rerun only processing and comparison:
+
+```bash
+./run_processing_and_comparison.sh
 ```
 
 Run a specific engine set:
