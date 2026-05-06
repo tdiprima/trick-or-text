@@ -11,10 +11,12 @@ fi
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 DEFAULT_OCR_ENGINES="pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b,lightonocr"
+SELECTED_OCR_ENGINES="${OCR_ENGINES:-${DEFAULT_OCR_ENGINES}}"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/generate_fake_images.py"
+printf 'Running OCR comparison engines: %s\n' "${SELECTED_OCR_ENGINES}"
 "${PYTHON_BIN}" "${ROOT_DIR}/compare_ocr_engines.py" \
-    --engines "${OCR_ENGINES:-${DEFAULT_OCR_ENGINES}}" \
+    --engines "${SELECTED_OCR_ENGINES}" \
     --ollama-base-url "${OLLAMA_BASE_URL:-http://localhost:11434}" \
     --ollama-timeout-seconds "${OLLAMA_TIMEOUT_SECONDS:-300}"
 

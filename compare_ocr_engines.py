@@ -169,6 +169,12 @@ def seconds_since(started_at: float) -> float:
     return round(time.perf_counter() - started_at, 3)
 
 
+def format_system_exit(exc: SystemExit) -> str:
+    if exc.code is None:
+        return "SystemExit"
+    return f"SystemExit: {exc.code}"
+
+
 class PyTesseractEngine:
     key = "pytesseract"
     display_name = "pytesseract"
@@ -594,6 +600,15 @@ def run_engine_for_sample(
     }
 
 
+def prepare_failed_sample_result(engine: OcrEngine, error_message: str) -> dict[str, object]:
+    return {
+        "display_name": engine.display_name,
+        "status": "error",
+        "error": f"prepare failed: {error_message}",
+        "timing": {"ocr_seconds": 0.0},
+    }
+
+
 def write_human_report(results: dict[str, object], output_path: Path) -> None:
     lines: list[str] = []
     lines.append("OCR comparison report")
@@ -762,14 +777,23 @@ def main() -> None:
         "overall": {},
         "overall_ranking": [],
     }
+    prepare_errors: dict[str, str] = {}
 
     for engine in selected_engines:
         started_at = time.perf_counter()
-        engine.prepare()
+        try:
+            engine.prepare()
+        except SystemExit as exc:
+            prepare_errors[engine.key] = format_system_exit(exc)
+        except Exception as exc:  # noqa: BLE001 - per-engine failures should not hide other results.
+            prepare_errors[engine.key] = f"{type(exc).__name__}: {exc}"
         results["engines"][engine.key] = {
             "display_name": engine.display_name,
             "setup_seconds": seconds_since(started_at),
+            "status": "error" if engine.key in prepare_errors else "ok",
         }
+        if engine.key in prepare_errors:
+            results["engines"][engine.key]["error"] = prepare_errors[engine.key]
 
     for label, sample in samples.items():
         sample_results: dict[str, object] = {
@@ -779,11 +803,17 @@ def main() -> None:
             "ranking": [],
         }
         for engine in selected_engines:
-            sample_results["engines"][engine.key] = run_engine_for_sample(
-                engine,
-                sample,
-                args.output_dir,
-            )
+            if engine.key in prepare_errors:
+                sample_results["engines"][engine.key] = prepare_failed_sample_result(
+                    engine,
+                    prepare_errors[engine.key],
+                )
+            else:
+                sample_results["engines"][engine.key] = run_engine_for_sample(
+                    engine,
+                    sample,
+                    args.output_dir,
+                )
         sample_results["ranking"] = rank_sample_engines(sample_results["engines"])
         results["samples"][label] = sample_results
 

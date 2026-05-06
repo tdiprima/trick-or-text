@@ -99,3 +99,12 @@ After the run, check:
 - The Ollama adapters require a running local Ollama server and locally available `gemma4:latest` and `gemma4:26b` models.
 - The LightOnOCR adapter uses the Hugging Face `lightonai/LightOnOCR-1B-1025` model by default and may download large model weights on first use.
 - The scripts assume `python3`, `venv`, a working `pip`, and the `tesseract` system binary are available on the Linux host.
+
+<!--
+Run this to force all engines:
+
+OCR_ENGINES=pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b,lightonocr ./
+run_processing_and_comparison.sh
+-->
+
+<br>

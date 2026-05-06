@@ -26,10 +26,12 @@ if [[ "${INSTALL_LIGHTONOCR:-0}" == "1" ]]; then
     python -m pip install torch transformers
     DEFAULT_OCR_ENGINES="${DEFAULT_OCR_ENGINES},lightonocr"
 fi
+SELECTED_OCR_ENGINES="${OCR_ENGINES:-${DEFAULT_OCR_ENGINES}}"
 
 python "${ROOT_DIR}/generate_fake_images.py"
+printf 'Running OCR comparison engines: %s\n' "${SELECTED_OCR_ENGINES}"
 python "${ROOT_DIR}/compare_ocr_engines.py" \
-    --engines "${OCR_ENGINES:-${DEFAULT_OCR_ENGINES}}" \
+    --engines "${SELECTED_OCR_ENGINES}" \
     --ollama-base-url "${OLLAMA_BASE_URL:-http://localhost:11434}"
 
 printf '\nPipeline finished. Outputs are in %s\n' "${ROOT_DIR}/artifacts"
