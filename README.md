@@ -52,8 +52,11 @@ python compare_ocr_engines.py --list-engines
 Run the optional LightOnOCR adapter:
 
 ```bash
-INSTALL_LIGHTONOCR=1 OCR_ENGINES=pytesseract,chandra,lightonocr ./install_and_run.sh
+INSTALL_LIGHTONOCR=1 ./install_and_run.sh
 ```
+
+With `INSTALL_LIGHTONOCR=1`, the default engine set becomes
+`pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b,lightonocr`.
 
 You can also run it directly after installing optional dependencies:
 

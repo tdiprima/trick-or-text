@@ -21,13 +21,15 @@ source "${VENV_DIR}/bin/activate"
 python -m pip install --upgrade pip
 python -m pip install "chandra-ocr[hf]" pillow numpy pydicom pytesseract
 
+DEFAULT_OCR_ENGINES="pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b"
 if [[ "${INSTALL_LIGHTONOCR:-0}" == "1" ]]; then
     python -m pip install torch transformers
+    DEFAULT_OCR_ENGINES="${DEFAULT_OCR_ENGINES},lightonocr"
 fi
 
 python "${ROOT_DIR}/generate_fake_images.py"
 python "${ROOT_DIR}/compare_ocr_engines.py" \
-    --engines "${OCR_ENGINES:-pytesseract,chandra,ollama-gemma4-latest,ollama-gemma4-26b}" \
+    --engines "${OCR_ENGINES:-${DEFAULT_OCR_ENGINES}}" \
     --ollama-base-url "${OLLAMA_BASE_URL:-http://localhost:11434}"
 
 printf '\nPipeline finished. Outputs are in %s\n' "${ROOT_DIR}/artifacts"
